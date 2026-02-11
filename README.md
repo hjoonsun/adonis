@@ -33,7 +33,8 @@
 │  └─ test_smoke.py
 ├─ .env.example
 ├─ .gitignore
-├─ pyproject.toml
+├─ pytest.ini
+├─ setup.py
 └─ README.md
 ```
 
@@ -41,19 +42,31 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e . --no-build-isolation
 python -m trading_bot.main
 pytest
 ```
 
-## 5) 다음 단계 (우선순위)
+> 오프라인/사내망 환경에서는 `pip install -e .`가 빌드 격리(build isolation) 단계에서 실패할 수 있으므로 `--no-build-isolation` 옵션을 권장합니다.
+
+## 5) 테스트 실패 시 무엇을 추가해야 하나?
+아래 2가지를 먼저 점검/추가하면 됩니다.
+
+1. **패키지 설치 옵션 추가**
+   - 기존: `pip install -e .`
+   - 권장: `pip install -e . --no-build-isolation`
+
+2. **필수 개발 도구 설치 확인**
+   - `pip install pytest`
+
+## 6) 다음 단계 (우선순위)
 1. 인증 토큰 발급/갱신 모듈 구현
 2. 시세 조회 모듈 구현
 3. 주문 실행 모듈 구현 (모의투자 우선)
 4. 전략 인터페이스/리스크 관리 모듈 구현
 5. 백테스트 환경 연동
 
-## 6) 역할 정의 (프로젝트 전문가 모드)
+## 7) 역할 정의 (프로젝트 전문가 모드)
 이 저장소는 다음 범위를 일괄 수행하는 것을 전제로 구성합니다.
 - 아키텍처 설계
 - 주요 로직 설계/구현
