@@ -13,9 +13,10 @@
 - **거래 비용 반영**: 매수 수수료, 매도 수수료+세금
 - **슬리피지 반영**: bps 단위로 매수/매도 체결가 조정
 - **주말 거래 차단**: 주중(월~금)만 매매/평가 처리
-- **CSV 리포트 출력**: `artifacts/trades.csv`, `artifacts/equity_curve.csv`
+- **CSV 리포트 출력**: `artifacts/trades.csv`, `artifacts/equity_curve.csv`, `artifacts/batch_summary.csv`
 - **RiskManager 적용**: 최대 보유종목 수/종목당 비중/일중 손실 제한
 - **성과지표 확장**: CAGR, Sharpe, Win Rate, Profit Factor
+- **배치 검증 자동화**: bull/sideways/bear/volatile 시나리오 일괄 실행 + summary CSV
 
 ## 3) 프로젝트 구조
 ```text

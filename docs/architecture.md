@@ -18,6 +18,7 @@
 6. `RiskManager` (최대 보유 수/비중/일일 손실 제한)
 7. 확장 성과지표 (CAGR, Sharpe, Win Rate, Profit Factor)
 8. CSV 리포트 (`trades.csv`, `equity_curve.csv`)
+9. 배치 시나리오 자동검증 (`batch_summary.csv`)
 
 ## 3. 다음 단계
 1. KIS 인증/토큰 모듈

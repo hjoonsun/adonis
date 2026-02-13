@@ -2,7 +2,8 @@ from datetime import date, timedelta
 
 from trading_bot.backtesting.engine import SwingBacktestEngine
 from trading_bot.core.risk_manager import RiskConfig, RiskManager
-from trading_bot.backtesting.report import export_backtest_csv
+from trading_bot.backtesting.automation import BatchResultRow
+from trading_bot.backtesting.report import export_backtest_csv, export_batch_summary_csv
 from trading_bot.models.market import DailyBar
 from trading_bot.selectors.quant_momentum import MomentumFilterConfig, MomentumSelector
 from trading_bot.strategies.quant_swing import QuantDailyRebalanceStrategy, QuantSwingStrategy
@@ -46,3 +47,14 @@ def test_export_backtest_csv_creates_files(tmp_path):
     assert (tmp_path / "equity_curve.csv").exists()
     assert trades_path.endswith("trades.csv")
     assert equity_path.endswith("equity_curve.csv")
+
+
+
+def test_export_batch_summary_csv_creates_file(tmp_path):
+    rows = [
+        BatchResultRow("s1", 0.1, 0.2, -0.05, 1.2, 0.55, 1.8, 12),
+        BatchResultRow("s2", -0.02, -0.03, -0.1, -0.2, 0.45, 0.8, 8),
+    ]
+    path = export_batch_summary_csv(rows, output_dir=str(tmp_path))
+    assert (tmp_path / "batch_summary.csv").exists()
+    assert path.endswith("batch_summary.csv")

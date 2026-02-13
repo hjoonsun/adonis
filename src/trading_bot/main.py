@@ -6,6 +6,7 @@ from datetime import date, timedelta
 
 from trading_bot.backtesting.engine import BacktestExecutionConfig, SwingBacktestEngine
 from trading_bot.core.risk_manager import RiskConfig, RiskManager
+from trading_bot.backtesting.automation import run_batch_backtests
 from trading_bot.backtesting.report import export_backtest_csv
 from trading_bot.models.market import DailyBar
 from trading_bot.selectors.quant_momentum import MomentumSelector
@@ -61,6 +62,9 @@ def main() -> None:
     print(f"cagr={result.metrics.cagr:.2%}, sharpe={result.metrics.sharpe:.2f}")
     print(f"win_rate={result.metrics.win_rate:.2%}, profit_factor={result.metrics.profit_factor:.2f}")
     print(f"csv={trades_csv}, {equity_csv}")
+
+    rows, summary_csv = run_batch_backtests()
+    print(f"batch_scenarios={len(rows)}, batch_csv={summary_csv}")
 
 
 if __name__ == "__main__":
