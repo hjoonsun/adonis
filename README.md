@@ -77,3 +77,21 @@ pytest
 - `KISAuthClient.get_access_token()`은 토큰 캐시를 우선 사용하고, 만료/강제갱신 시 재발급 함수(`fetch_token`)를 호출
 - 네트워크 호출은 의존성 주입(`fetch_token`)으로 분리되어 Mock 테스트 가능
 
+
+## 10) .env 템플릿 분리(모의/실전)
+- 모의투자: `.env.paper.example`
+- 실전투자: `.env.live.example`
+- 빠른 시작/호환용: `.env.example`
+
+사용 예시:
+```bash
+cp .env.paper.example .env
+# 또는
+cp .env.live.example .env
+```
+
+## 11) 보안상 `.env` 관리 방법
+- 실제 키가 들어간 `.env`는 **절대 커밋하지 않기** (`.gitignore`에 이미 `.env` 포함).
+- 저장소에는 예시 파일(`.env*.example`)만 버전관리.
+- 키 유출이 의심되면 즉시 한국투자증권에서 앱키/시크릿 재발급(회전).
+- 팀 협업 시 키는 Git이 아닌 비밀관리 수단(예: 1Password, Vault, GitHub Actions Secrets)으로 공유.
