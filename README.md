@@ -26,6 +26,7 @@
 │  │  ├─ engine.py
 │  │  └─ report.py
 │  ├─ models/market.py
+│  ├─ clients/kis_auth.py
 │  ├─ selectors/
 │  ├─ strategies/
 │  └─ main.py
@@ -70,3 +71,9 @@ pytest
 - **스코어 파라미터화**: `MomentumScoreConfig`
   - `weight_m20`, `weight_m60`, `weight_volatility`, `weight_turnover`
 - 동일 `StockSelector` 구조를 유지하므로, 추후 밸류/퀄리티 셀렉터로 교체해도 백테스트 엔진은 그대로 사용 가능
+
+## 9) KIS 인증 모듈(키 없이 구현 가능한 범위)
+- `KISAuthConfig.from_env()`로 환경변수 검증/로드 (`KIS_APP_KEY`, `KIS_APP_SECRET`, `KIS_BASE_URL`, `KIS_IS_PAPER`)
+- `KISAuthClient.get_access_token()`은 토큰 캐시를 우선 사용하고, 만료/강제갱신 시 재발급 함수(`fetch_token`)를 호출
+- 네트워크 호출은 의존성 주입(`fetch_token`)으로 분리되어 Mock 테스트 가능
+

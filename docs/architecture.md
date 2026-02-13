@@ -5,7 +5,8 @@
 - `selectors`: 종목 탐색/선정 로직
 - `strategies`: 시그널 생성 로직
 - `backtesting`: API 없이 실행 가능한 시뮬레이션 엔진
-- `clients/execution`: KIS 연동 단계에서 추가 연결
+- `clients/auth`: KIS 인증/토큰 관리
+- `clients/execution`: KIS 주문/체결 연동
 
 ## 2. 현재 구현
 1. `MomentumSelector` (종목 랭킹, 필터/스코어 파라미터화)
@@ -19,6 +20,7 @@
 7. 확장 성과지표 (CAGR, Sharpe, Win Rate, Profit Factor)
 8. CSV 리포트 (`trades.csv`, `equity_curve.csv`)
 9. 배치 시나리오 자동검증 (`batch_summary.csv`)
+10. `KISAuthClient` (토큰 캐시/만료검사/강제갱신)
 
 ## 3. 다음 단계
 1. KIS 인증/토큰 모듈
