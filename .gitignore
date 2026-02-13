@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Env
+.env
+
+# Test
+.pytest_cache/
+.coverage
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+
+# Backtest artifacts
+artifacts/
