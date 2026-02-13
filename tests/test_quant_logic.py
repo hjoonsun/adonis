@@ -36,7 +36,7 @@ def test_momentum_selector_ranks_higher_momentum_first():
 
 
 def test_quant_swing_buy_signal_on_uptrend():
-    strategy = QuantSwingStrategy()
+    strategy = QuantSwingStrategy(entry_buffer=0.0)
     bars = make_bars(100, 0.002)
 
     decision = strategy.decide("A", bars, in_position=False)
@@ -48,6 +48,46 @@ def test_quant_swing_sell_signal_on_stop_loss():
     bars = make_bars(100, -0.002)
 
     decision = strategy.decide("A", bars, in_position=True, entry_price=120)
+    assert decision.signal == Signal.SELL
+
+
+def test_quant_swing_sell_signal_on_trailing_stop():
+    strategy = QuantSwingStrategy(trailing_stop=0.03)
+    bars = make_bars(100, 0.0005)
+    # 마지막 하루 급락
+    bars[-1] = DailyBar(
+        day=bars[-1].day,
+        open=bars[-2].close,
+        high=bars[-2].close,
+        low=bars[-2].close * 0.9,
+        close=bars[-2].close * 0.95,
+        volume=2_000_000,
+    )
+
+    decision = strategy.decide(
+        "A",
+        bars,
+        in_position=True,
+        entry_price=100,
+        highest_price_since_entry=bars[-2].close,
+        holding_days=10,
+    )
+    assert decision.signal == Signal.SELL
+
+
+def test_quant_swing_hold_on_cooldown():
+    strategy = QuantSwingStrategy(cooldown_days=5)
+    bars = make_bars(100, 0.002)
+    decision = strategy.decide("A", bars, in_position=False, cooldown_remaining=2)
+    assert decision.signal == Signal.HOLD
+
+
+def test_quant_swing_sell_on_max_holding_days():
+    strategy = QuantSwingStrategy(max_holding_days=5)
+    bars = make_bars(100, 0.002)
+    decision = strategy.decide(
+        "A", bars, in_position=True, entry_price=95, highest_price_since_entry=110, holding_days=6
+    )
     assert decision.signal == Signal.SELL
 
 

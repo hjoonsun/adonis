@@ -10,7 +10,8 @@
 ## 2. 현재 구현
 1. `MomentumSelector` (종목 랭킹, 필터/스코어 파라미터화)
    - `MomentumFilterConfig`, `MomentumScoreConfig`로 규칙/가중치 분리
-2. `QuantSwingStrategy` (진입/청산)
+2. `QuantSwingStrategy` (진입/청산 세분화)
+   - 진입 버퍼, 모멘텀 확인, 쿨다운, 트레일링 스탑, 최대 보유일
 3. `QuantDailyRebalanceStrategy` (Top-N 보유)
 4. `SwingBacktestEngine` (거래/자산곡선/성과지표 산출)
 5. `BacktestExecutionConfig` (수수료/세금/슬리피지/주말거래 허용 설정)

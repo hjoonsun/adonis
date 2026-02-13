@@ -51,6 +51,8 @@ class BacktestExecutionConfig:
 class Position:
     qty: int
     entry_price: float
+    highest_price: float
+    holding_days: int = 0
 
 
 @dataclass
@@ -72,6 +74,7 @@ class SwingBacktestEngine:
 
         cash = self.initial_cash
         positions: dict[str, Position] = {}
+        cooldown_until_index: dict[str, int] = {}
         trades: list[Trade] = []
         equity_curve: list[EquityPoint] = []
 
@@ -86,14 +89,20 @@ class SwingBacktestEngine:
             for symbol in list(positions.keys()):
                 bars = history[symbol]
                 raw_close = bars[-1].close
+                pos_ref = positions[symbol]
+                pos_ref.holding_days += 1
+                pos_ref.highest_price = max(pos_ref.highest_price, raw_close)
                 decision = self.swing.decide(
                     symbol,
                     bars,
                     in_position=True,
-                    entry_price=positions[symbol].entry_price,
+                    entry_price=pos_ref.entry_price,
+                    highest_price_since_entry=pos_ref.highest_price,
+                    holding_days=pos_ref.holding_days,
                 )
                 if decision.signal == Signal.SELL:
                     pos = positions.pop(symbol)
+                    cooldown_until_index[symbol] = i + self.swing.cooldown_days
                     exec_price = _sell_price(raw_close, self.execution.slippage_bps)
                     gross = pos.qty * exec_price
                     fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
@@ -109,6 +118,7 @@ class SwingBacktestEngine:
                     continue
                 raw_close = history[symbol][-1].close
                 pos = positions.pop(symbol)
+                cooldown_until_index[symbol] = i + self.swing.cooldown_days
                 exec_price = _sell_price(raw_close, self.execution.slippage_bps)
                 gross = pos.qty * exec_price
                 fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
@@ -119,7 +129,8 @@ class SwingBacktestEngine:
             for symbol in ranked_symbols:
                 if symbol not in to_buy:
                     continue
-                decision = self.swing.decide(symbol, history[symbol], in_position=False)
+                cooldown_remaining = max(0, cooldown_until_index.get(symbol, -1) - i)
+                decision = self.swing.decide(symbol, history[symbol], in_position=False, cooldown_remaining=cooldown_remaining)
                 if decision.signal == Signal.BUY:
                     buy_candidates.append((symbol, decision.reason))
 
@@ -138,7 +149,7 @@ class SwingBacktestEngine:
                     if total > cash:
                         continue
                     cash -= total
-                    positions[symbol] = Position(qty=qty, entry_price=exec_price)
+                    positions[symbol] = Position(qty=qty, entry_price=exec_price, highest_price=raw_close, holding_days=0)
                     trades.append(Trade(day, symbol, "BUY", exec_price, qty, reason, fee))
 
             holdings_value = sum(positions[s].qty * history[s][-1].close for s in positions)
