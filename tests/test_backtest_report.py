@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from trading_bot.backtesting.engine import SwingBacktestEngine
+from trading_bot.core.risk_manager import RiskConfig, RiskManager
 from trading_bot.backtesting.report import export_backtest_csv
 from trading_bot.models.market import DailyBar
 from trading_bot.selectors.quant_momentum import MomentumFilterConfig, MomentumSelector
@@ -35,6 +36,7 @@ def test_export_backtest_csv_creates_files(tmp_path):
         selector=MomentumSelector(filters=MomentumFilterConfig(min_avg_turnover=1, min_price=1)),
         swing=QuantSwingStrategy(),
         rebalance=QuantDailyRebalanceStrategy(hold_top_n=1),
+        risk=RiskManager(RiskConfig()),
     )
     result = engine.run(universe)
 

@@ -14,6 +14,8 @@
 - **슬리피지 반영**: bps 단위로 매수/매도 체결가 조정
 - **주말 거래 차단**: 주중(월~금)만 매매/평가 처리
 - **CSV 리포트 출력**: `artifacts/trades.csv`, `artifacts/equity_curve.csv`
+- **RiskManager 적용**: 최대 보유종목 수/종목당 비중/일중 손실 제한
+- **성과지표 확장**: CAGR, Sharpe, Win Rate, Profit Factor
 
 ## 3) 프로젝트 구조
 ```text
@@ -45,8 +47,8 @@ pytest
 ## 5) 백테스트 모듈 설명
 - `SwingBacktestEngine`
   - 입력: 종목별 일봉 데이터(universe)
-  - 로직: 스윙 청산 판단 → 모멘텀 랭킹 → Top-N 리밸런싱 매수
-  - 출력: 거래내역(trades), 자산곡선(equity curve), 성과지표(total return, max drawdown)
+  - 로직: 스윙 청산 판단 → 모멘텀 랭킹 → Top-N 리밸런싱 매수 + RiskManager 검증
+  - 출력: 거래내역(trades), 자산곡선(equity curve), 성과지표(total return, CAGR, max drawdown, Sharpe, win rate, profit factor)
 - `BacktestExecutionConfig`
   - `commission_rate`, `sell_tax_rate`, `slippage_bps`, `allow_weekend_trading`
 

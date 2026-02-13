@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import floor
+from math import floor, sqrt
 
+from trading_bot.core.risk_manager import RiskManager
 from trading_bot.models.market import DailyBar
 from trading_bot.selectors.quant_momentum import MomentumSelector
 from trading_bot.strategies.quant_swing import QuantDailyRebalanceStrategy, QuantSwingStrategy, Signal
@@ -29,7 +30,11 @@ class EquityPoint:
 @dataclass(frozen=True)
 class BacktestMetrics:
     total_return: float
+    cagr: float
     max_drawdown: float
+    sharpe: float
+    win_rate: float
+    profit_factor: float
 
 
 @dataclass(frozen=True)
@@ -60,13 +65,14 @@ class SwingBacktestEngine:
     selector: MomentumSelector
     swing: QuantSwingStrategy
     rebalance: QuantDailyRebalanceStrategy
+    risk: RiskManager
     initial_cash: float = 10_000_000
     execution: BacktestExecutionConfig = BacktestExecutionConfig()
 
     def run(self, universe: dict[str, list[DailyBar]]) -> BacktestResult:
         symbols = sorted(universe.keys())
         if not symbols:
-            return BacktestResult([], [], BacktestMetrics(0.0, 0.0))
+            return BacktestResult([], [], BacktestMetrics(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
         length = min(len(universe[s]) for s in symbols)
         min_history = getattr(self.selector, "filters", None).min_history if getattr(self.selector, "filters", None) else 60
@@ -77,6 +83,7 @@ class SwingBacktestEngine:
         cooldown_until_index: dict[str, int] = {}
         trades: list[Trade] = []
         equity_curve: list[EquityPoint] = []
+        closed_trade_returns: list[float] = []
 
         for i in range(start_i, length):
             current_day = universe[symbols[0]][i].day
@@ -85,6 +92,8 @@ class SwingBacktestEngine:
 
             day = current_day.isoformat()
             history = {s: universe[s][: i + 1] for s in symbols}
+
+            day_start_equity = cash + sum(positions[s].qty * history[s][-1].close for s in positions)
 
             for symbol in list(positions.keys()):
                 bars = history[symbol]
@@ -108,6 +117,7 @@ class SwingBacktestEngine:
                     fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
                     cash += gross - fee
                     trades.append(Trade(day, symbol, "SELL", exec_price, pos.qty, decision.reason, fee))
+                    closed_trade_returns.append((exec_price / pos.entry_price) - 1.0)
 
             ranked = self.selector.select(history, top_n=max(self.rebalance.hold_top_n, 10))
             ranked_symbols = [r.symbol for r in ranked]
@@ -124,6 +134,7 @@ class SwingBacktestEngine:
                 fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
                 cash += gross - fee
                 trades.append(Trade(day, symbol, "SELL", exec_price, pos.qty, "리밸런싱 제외", fee))
+                closed_trade_returns.append((exec_price / pos.entry_price) - 1.0)
 
             buy_candidates = []
             for symbol in ranked_symbols:
@@ -146,6 +157,15 @@ class SwingBacktestEngine:
                     gross = qty * exec_price
                     fee = gross * self.execution.commission_rate
                     total = gross + fee
+                    current_equity = cash + sum(positions[s].qty * history[s][-1].close for s in positions)
+                    if not self.risk.allows_new_position(
+                        current_positions=len(positions),
+                        proposed_cost=total,
+                        equity=max(current_equity, 1.0),
+                        day_start_equity=day_start_equity,
+                        current_equity=current_equity,
+                    ):
+                        continue
                     if total > cash:
                         continue
                     cash -= total
@@ -155,7 +175,7 @@ class SwingBacktestEngine:
             holdings_value = sum(positions[s].qty * history[s][-1].close for s in positions)
             equity_curve.append(EquityPoint(day=day, equity=cash + holdings_value, cash=cash))
 
-        metrics = _calc_metrics(self.initial_cash, equity_curve)
+        metrics = _calc_metrics(self.initial_cash, equity_curve, closed_trade_returns)
         return BacktestResult(trades=trades, equity_curve=equity_curve, metrics=metrics)
 
 
@@ -167,9 +187,9 @@ def _sell_price(price: float, slippage_bps: float) -> float:
     return price * (1 - slippage_bps / 10_000)
 
 
-def _calc_metrics(initial_cash: float, equity_curve: list[EquityPoint]) -> BacktestMetrics:
+def _calc_metrics(initial_cash: float, equity_curve: list[EquityPoint], closed_trade_returns: list[float]) -> BacktestMetrics:
     if not equity_curve:
-        return BacktestMetrics(total_return=0.0, max_drawdown=0.0)
+        return BacktestMetrics(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     total_return = (equity_curve[-1].equity / initial_cash) - 1.0
 
@@ -182,4 +202,37 @@ def _calc_metrics(initial_cash: float, equity_curve: list[EquityPoint]) -> Backt
         if dd < max_dd:
             max_dd = dd
 
-    return BacktestMetrics(total_return=total_return, max_drawdown=max_dd)
+    years = max(len(equity_curve) / 252.0, 1e-9)
+    cagr = (equity_curve[-1].equity / initial_cash) ** (1 / years) - 1.0
+
+    daily_returns: list[float] = []
+    for prev, curr in zip(equity_curve[:-1], equity_curve[1:]):
+        if prev.equity <= 0:
+            continue
+        daily_returns.append((curr.equity / prev.equity) - 1.0)
+
+    sharpe = 0.0
+    if daily_returns:
+        mean = sum(daily_returns) / len(daily_returns)
+        var = sum((r - mean) ** 2 for r in daily_returns) / len(daily_returns)
+        std = sqrt(var)
+        if std > 0:
+            sharpe = (mean / std) * sqrt(252)
+
+    wins = [r for r in closed_trade_returns if r > 0]
+    losses = [r for r in closed_trade_returns if r < 0]
+    total_closed = len(closed_trade_returns)
+    win_rate = (len(wins) / total_closed) if total_closed else 0.0
+
+    gross_profit = sum(wins)
+    gross_loss = abs(sum(losses))
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else 0.0
+
+    return BacktestMetrics(
+        total_return=total_return,
+        cagr=cagr,
+        max_drawdown=max_dd,
+        sharpe=sharpe,
+        win_rate=win_rate,
+        profit_factor=profit_factor,
+    )
