@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from trading_bot.backtesting.engine import SwingBacktestEngine
+from trading_bot.backtesting.engine import BacktestExecutionConfig, SwingBacktestEngine
+from trading_bot.backtesting.report import export_backtest_csv
 from trading_bot.models.market import DailyBar
 from trading_bot.selectors.quant_momentum import MomentumSelector
 from trading_bot.strategies.quant_swing import QuantDailyRebalanceStrategy, QuantSwingStrategy
@@ -12,9 +13,9 @@ from trading_bot.strategies.quant_swing import QuantDailyRebalanceStrategy, Quan
 
 def _mock_bars(base: float, drift: float, symbol_seed: int) -> list[DailyBar]:
     bars: list[DailyBar] = []
-    start = date(2024, 1, 1)
+    start = date(2025, 7, 1)
     price = base
-    for i in range(120):
+    for i in range(184):
         noise = ((i + symbol_seed) % 7 - 3) * 0.002
         price = price * (1 + drift + noise)
         bars.append(
@@ -41,13 +42,21 @@ def main() -> None:
         selector=MomentumSelector(),
         swing=QuantSwingStrategy(),
         rebalance=QuantDailyRebalanceStrategy(hold_top_n=2),
+        execution=BacktestExecutionConfig(
+            commission_rate=0.00015,
+            sell_tax_rate=0.0018,
+            slippage_bps=5,
+            allow_weekend_trading=False,
+        ),
     )
     result = engine.run(universe)
+    trades_csv, equity_csv = export_backtest_csv(result)
 
-    print("api 를 이용한 주식 자동매매 V1.0 - 백테스트 데모")
+    print("api 를 이용한 주식 자동매매 V1.0 - 실전형 백테스트 데모")
     print(f"trades={len(result.trades)}")
     print(f"total_return={result.metrics.total_return:.2%}")
     print(f"max_drawdown={result.metrics.max_drawdown:.2%}")
+    print(f"csv={trades_csv}, {equity_csv}")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,8 @@
 2. `QuantSwingStrategy` (진입/청산)
 3. `QuantDailyRebalanceStrategy` (Top-N 보유)
 4. `SwingBacktestEngine` (거래/자산곡선/성과지표 산출)
+5. `BacktestExecutionConfig` (수수료/세금/슬리피지/주말거래 허용 설정)
+6. CSV 리포트 (`trades.csv`, `equity_curve.csv`)
 
 ## 3. 다음 단계
 1. KIS 인증/토큰 모듈

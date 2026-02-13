@@ -16,6 +16,7 @@ class Trade:
     price: float
     qty: int
     reason: str
+    fee: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,14 @@ class BacktestResult:
     metrics: BacktestMetrics
 
 
+@dataclass(frozen=True)
+class BacktestExecutionConfig:
+    commission_rate: float = 0.00015
+    sell_tax_rate: float = 0.0018
+    slippage_bps: float = 5.0
+    allow_weekend_trading: bool = False
+
+
 @dataclass
 class Position:
     qty: int
@@ -50,6 +59,7 @@ class SwingBacktestEngine:
     swing: QuantSwingStrategy
     rebalance: QuantDailyRebalanceStrategy
     initial_cash: float = 10_000_000
+    execution: BacktestExecutionConfig = BacktestExecutionConfig()
 
     def run(self, universe: dict[str, list[DailyBar]]) -> BacktestResult:
         symbols = sorted(universe.keys())
@@ -66,13 +76,16 @@ class SwingBacktestEngine:
         equity_curve: list[EquityPoint] = []
 
         for i in range(start_i, length):
-            day = universe[symbols[0]][i].day.isoformat()
+            current_day = universe[symbols[0]][i].day
+            if (not self.execution.allow_weekend_trading) and current_day.weekday() >= 5:
+                continue
+
+            day = current_day.isoformat()
             history = {s: universe[s][: i + 1] for s in symbols}
 
-            # 1) 보유 종목의 전략 청산 신호 먼저 확인
             for symbol in list(positions.keys()):
                 bars = history[symbol]
-                close = bars[-1].close
+                raw_close = bars[-1].close
                 decision = self.swing.decide(
                     symbol,
                     bars,
@@ -81,10 +94,12 @@ class SwingBacktestEngine:
                 )
                 if decision.signal == Signal.SELL:
                     pos = positions.pop(symbol)
-                    cash += pos.qty * close
-                    trades.append(Trade(day, symbol, "SELL", close, pos.qty, decision.reason))
+                    exec_price = _sell_price(raw_close, self.execution.slippage_bps)
+                    gross = pos.qty * exec_price
+                    fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
+                    cash += gross - fee
+                    trades.append(Trade(day, symbol, "SELL", exec_price, pos.qty, decision.reason, fee))
 
-            # 2) 랭킹 선정 + 리밸런싱
             ranked = self.selector.select(history, top_n=max(self.rebalance.hold_top_n, 10))
             ranked_symbols = [r.symbol for r in ranked]
             to_buy, to_sell = self.rebalance.rebalance_targets(ranked_symbols, set(positions))
@@ -92,10 +107,13 @@ class SwingBacktestEngine:
             for symbol in sorted(to_sell):
                 if symbol not in positions:
                     continue
-                close = history[symbol][-1].close
+                raw_close = history[symbol][-1].close
                 pos = positions.pop(symbol)
-                cash += pos.qty * close
-                trades.append(Trade(day, symbol, "SELL", close, pos.qty, "리밸런싱 제외"))
+                exec_price = _sell_price(raw_close, self.execution.slippage_bps)
+                gross = pos.qty * exec_price
+                fee = gross * (self.execution.commission_rate + self.execution.sell_tax_rate)
+                cash += gross - fee
+                trades.append(Trade(day, symbol, "SELL", exec_price, pos.qty, "리밸런싱 제외", fee))
 
             buy_candidates = []
             for symbol in ranked_symbols:
@@ -109,25 +127,33 @@ class SwingBacktestEngine:
             if slots > 0:
                 budget_per_trade = cash / slots
                 for symbol, reason in buy_candidates:
-                    close = history[symbol][-1].close
-                    qty = floor(budget_per_trade / close)
+                    raw_close = history[symbol][-1].close
+                    exec_price = _buy_price(raw_close, self.execution.slippage_bps)
+                    qty = floor(budget_per_trade / exec_price)
                     if qty <= 0:
                         continue
-                    cost = qty * close
-                    if cost > cash:
+                    gross = qty * exec_price
+                    fee = gross * self.execution.commission_rate
+                    total = gross + fee
+                    if total > cash:
                         continue
-                    cash -= cost
-                    positions[symbol] = Position(qty=qty, entry_price=close)
-                    trades.append(Trade(day, symbol, "BUY", close, qty, reason))
+                    cash -= total
+                    positions[symbol] = Position(qty=qty, entry_price=exec_price)
+                    trades.append(Trade(day, symbol, "BUY", exec_price, qty, reason, fee))
 
-            # 3) 일별 자산 기록
-            holdings_value = sum(
-                positions[s].qty * history[s][-1].close for s in positions
-            )
+            holdings_value = sum(positions[s].qty * history[s][-1].close for s in positions)
             equity_curve.append(EquityPoint(day=day, equity=cash + holdings_value, cash=cash))
 
         metrics = _calc_metrics(self.initial_cash, equity_curve)
         return BacktestResult(trades=trades, equity_curve=equity_curve, metrics=metrics)
+
+
+def _buy_price(price: float, slippage_bps: float) -> float:
+    return price * (1 + slippage_bps / 10_000)
+
+
+def _sell_price(price: float, slippage_bps: float) -> float:
+    return price * (1 - slippage_bps / 10_000)
 
 
 def _calc_metrics(initial_cash: float, equity_curve: list[EquityPoint]) -> BacktestMetrics:
