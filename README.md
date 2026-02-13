@@ -54,3 +54,11 @@ pytest
 1. 한국투자증권 앱키/시크릿/계좌를 `.env`로 준비
 2. 일봉 조회 API를 `DailyBar` 변환 함수에 연결
 3. 주문 API 어댑터를 붙여 모의투자부터 실행
+
+
+## 8) 종목 선정 로직 고도화 포인트
+- **필터 파라미터화**: `MomentumFilterConfig`
+  - `min_history`, `min_avg_turnover`, `min_price`, `max_volatility20`, `min_m20`, `min_m60`
+- **스코어 파라미터화**: `MomentumScoreConfig`
+  - `weight_m20`, `weight_m60`, `weight_volatility`, `weight_turnover`
+- 동일 `StockSelector` 구조를 유지하므로, 추후 밸류/퀄리티 셀렉터로 교체해도 백테스트 엔진은 그대로 사용 가능

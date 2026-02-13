@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from trading_bot.backtesting.engine import SwingBacktestEngine
 from trading_bot.models.market import DailyBar
-from trading_bot.selectors.quant_momentum import MomentumSelector
+from trading_bot.selectors.quant_momentum import MomentumFilterConfig, MomentumSelector
 from trading_bot.strategies.quant_swing import QuantDailyRebalanceStrategy, QuantSwingStrategy
 
 
@@ -33,7 +33,7 @@ def test_backtest_engine_runs_and_creates_curve():
     }
 
     engine = SwingBacktestEngine(
-        selector=MomentumSelector(min_avg_turnover=1),
+        selector=MomentumSelector(filters=MomentumFilterConfig(min_avg_turnover=1, min_price=1)),
         swing=QuantSwingStrategy(),
         rebalance=QuantDailyRebalanceStrategy(hold_top_n=2),
         initial_cash=1_000_000,

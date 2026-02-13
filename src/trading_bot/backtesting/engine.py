@@ -57,7 +57,8 @@ class SwingBacktestEngine:
             return BacktestResult([], [], BacktestMetrics(0.0, 0.0))
 
         length = min(len(universe[s]) for s in symbols)
-        start_i = max(self.selector.min_history, self.swing.slow_window)
+        min_history = getattr(self.selector, "filters", None).min_history if getattr(self.selector, "filters", None) else 60
+        start_i = max(min_history, self.swing.slow_window)
 
         cash = self.initial_cash
         positions: dict[str, Position] = {}

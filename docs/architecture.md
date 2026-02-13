@@ -8,7 +8,8 @@
 - `clients/execution`: KIS 연동 단계에서 추가 연결
 
 ## 2. 현재 구현
-1. `MomentumSelector` (종목 랭킹)
+1. `MomentumSelector` (종목 랭킹, 필터/스코어 파라미터화)
+   - `MomentumFilterConfig`, `MomentumScoreConfig`로 규칙/가중치 분리
 2. `QuantSwingStrategy` (진입/청산)
 3. `QuantDailyRebalanceStrategy` (Top-N 보유)
 4. `SwingBacktestEngine` (거래/자산곡선/성과지표 산출)
